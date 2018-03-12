@@ -1,12 +1,11 @@
 // Require all the things (that we need).
-var gulp = require('gulp');
-var phpcs = require('gulp-phpcs');
-var sort = require('gulp-sort');
-var watch = require('gulp-watch');
-var wp_pot = require('gulp-wp-pot');
+const gulp = require('gulp');
+const phpcs = require('gulp-phpcs');
+const sort = require('gulp-sort');
+const wp_pot = require('gulp-wp-pot');
 
 // Define the source paths for each file type.
-var src = {
+const src = {
 	php: ['**/*.php','!vendor/**','!node_modules/**']
 };
 
