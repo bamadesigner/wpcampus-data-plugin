@@ -8,7 +8,7 @@ class WPCampus_Data_API {
 	/**
 	 * Register our API routes.
 	 */
-	public function register_routes( $routes ) {
+	public function register_routes() {
 
 		// Get WPCampus data.
 		register_rest_route( 'wpcampus', '/data/set/(?P<set>[a-z\_\-]+)', array(
@@ -24,8 +24,6 @@ class WPCampus_Data_API {
 			'methods'   => 'GET',
 			'callback'  => array( $this, 'get_event_topics' ),
 		));
-
-		return $routes;
 	}
 
 	/**
