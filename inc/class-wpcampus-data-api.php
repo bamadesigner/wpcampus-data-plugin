@@ -19,10 +19,10 @@ class WPCampus_Data_API {
 			},
 		));
 
-		// Get list of all WPCampus topics.
-		register_rest_route( 'wpcampus', '/data/events/topics', array(
+		// Get list of all WPCampus sessions.
+		register_rest_route( 'wpcampus', '/data/events/sessions', array(
 			'methods'   => 'GET',
-			'callback'  => array( $this, 'get_event_topics' ),
+			'callback'  => array( $this, 'get_event_sessions' ),
 		));
 	}
 
@@ -33,6 +33,10 @@ class WPCampus_Data_API {
 
 		// Build the response.
 		$response = null;
+
+		/*
+		 * @TODO: move all of these data functions to the plugin.
+		 */
 
 		switch ( $request['set'] ) {
 
@@ -89,12 +93,12 @@ class WPCampus_Data_API {
 	}
 
 	/**
-	 * Respond with our event topics.
+	 * Respond with our event sessions.
 	 */
-	function get_event_topics( WP_REST_Request $request ) {
+	function get_event_sessions( WP_REST_Request $request ) {
 
-		// Build the response with the topics.
-		$response = wpcampus_data()->get_event_topics();
+		// Build the response with the sessions.
+		$response = wpcampus_data()->get_event_sessions();
 
 		// If no response, return an error.
 		if ( false === $response ) {

@@ -90,34 +90,56 @@ class WPCampus_Data {
 	}
 
 	/**
-	 * Get the topics from all of our events.
+	 * Get the sessions from all of our events.
+	 *
+	 * @TODO:
+	 * - Update to use new system.
 	 */
-	public function get_event_topics() {
+	public function get_event_sessions() {
 		global $wpdb;
 
-		// Will hold topics.
-		$topics = array();
+		// Will hold sessions.
+		$sessions = array();
+
+		// Do we have any filters?
+		$filters = array();
+		$allowed_filters = array( 'e' );
+		if ( ! empty( $_GET ) ) {
+			foreach ( $_GET as $get_filter_key => $get_filter_value ) {
+				if ( ! in_array( $get_filter_key, $allowed_filters ) ) {
+					continue;
+				}
+				$filters[ $get_filter_key ] = explode( ',', sanitize_text_field( $get_filter_value ) );
+			}
+		}
 
 		// Store info for event sites.
 		$event_sites = array(
 			array(
 				'site_id'   => 4,
 				'title'     => 'WPCampus 2016',
+				'slug'      => 'wpcampus-2016',
 			),
 			array(
 				'site_id'   => 6,
 				'title'     => 'WPCampus Online',
+				'slug'      => 'wpcampus-online',
 			),
 			array(
 				'site_id'   => 7,
 				'title'     => 'WPCampus 2017',
+				'slug'      => 'wpcampus-2017',
 			),
 		);
 		foreach ( $event_sites as $event ) {
 
+			// If filtering by event, remove those not in the filter.
+			if ( ! empty( $filters['e'] ) && ! in_array( $event['slug'], $filters['e'] ) ) {
+				continue;
+			}
+
 			// Set the ID and title
 			$event_site_id = $event['site_id'];
-			$event_title = $event['title'];
 
 			// Get the site's DB prefix.
 			$event_site_prefix = $wpdb->get_blog_prefix( $event_site_id );
@@ -125,33 +147,41 @@ class WPCampus_Data {
 			// Get the schedule URL for the site.
 			$event_site_schedule_url = get_site_url( $event_site_id, '/schedule/' );
 
-			// Get the topics.
-			$site_topics = $wpdb->get_results( $wpdb->prepare( "SELECT posts.ID,
-				%d AS blog_id,
-				%s AS event,
-				posts.post_title,
-				posts.post_name,
-				posts.post_parent,
-				posts.post_content,
-				CONCAT( %s, posts.post_name, '/') AS permalink,
-				posts.guid
-				FROM {$event_site_prefix}posts posts WHERE posts.post_type = 'schedule' AND posts.post_status = 'publish'", $event_site_id, $event_title, $event_site_schedule_url ) );
+			// Get the sessions.
+			$site_sessions = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT posts.ID,
+					%d AS blog_id,
+					%s AS event,
+					%s AS event_slug,
+					posts.post_title,
+					posts.post_name,
+					posts.post_parent,
+					posts.post_content,
+					CONCAT( %s, posts.post_name, '/') AS permalink,
+					posts.guid
+					FROM {$event_site_prefix}posts posts
+					INNER JOIN {$event_site_prefix}postmeta meta ON meta.post_ID = posts.ID AND meta.meta_key = 'wpcampus_session' AND meta.meta_value = '1'
+					WHERE posts.post_type = 'schedule' AND posts.post_status = 'publish'",
+					$event_site_id, $event['title'], $event['slug'], $event_site_schedule_url
+				)
+			);
 
 			// Add to complete list.
-			if ( ! empty( $site_topics ) ) {
-				$topics = array_merge( $topics, $site_topics );
+			if ( ! empty( $site_sessions ) ) {
+				$sessions = array_merge( $sessions, $site_sessions );
 			}
 		}
 
-		//array_multisort( $topics['post_title'], SORT_ASC, SORT_NATURAL );
-		usort( $topics, function( $a, $b ) {
+		// Sort by title.
+		usort( $sessions, function( $a, $b ) {
 			if ( $a->post_title == $b->post_title ) {
 				return 0;
 			}
 			return ( $a->post_title < $b->post_title ) ? -1 : 1;
 		});
 
-		return $topics;
+		return $sessions;
 	}
 }
 
