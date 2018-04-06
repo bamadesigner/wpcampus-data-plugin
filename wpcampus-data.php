@@ -108,25 +108,41 @@ final class WPCampus_Data {
 		// Store info for event sites.
 		$event_sites = array(
 			array(
-				'site_id'   => 4,
-				'title'     => 'WPCampus 2016',
-				'slug'      => 'wpcampus-2016',
+				'site_id' => 6,
+				'title'   => 'WPCampus Online 2018',
+				'slug'    => 'wpcampus-online-2018',
+				'date'    => '2018-01-30',
 			),
 			array(
-				'site_id'   => 6,
-				'title'     => 'WPCampus Online',
-				'slug'      => 'wpcampus-online',
+				'site_id' => 7,
+				'title'   => 'WPCampus 2017',
+				'slug'    => 'wpcampus-2017',
+				'date'    => "2017-07-15','2017-07-14",
 			),
 			array(
-				'site_id'   => 7,
-				'title'     => 'WPCampus 2017',
-				'slug'      => 'wpcampus-2017',
+				'site_id' => 6,
+				'title'   => 'WPCampus Online 2017',
+				'slug'    => 'wpcampus-online-2017',
+				'date'    => '2017-01-23',
+			),
+			array(
+				'site_id' => 4,
+				'title'   => 'WPCampus 2016',
+				'slug'    => 'wpcampus-2016',
+				'date'    => "2016-07-16','2016-07-16",
 			),
 		);
+
+		$main_site_prefix = $wpdb->prefix;
+
 		foreach ( $event_sites as $event ) {
 
 			// If filtering by event, remove those not in the filter.
 			if ( ! empty( $filters['e'] ) && ! in_array( $event['slug'], $filters['e'] ) ) {
+				continue;
+			}
+
+			if ( empty( $event['slug'] ) ) {
 				continue;
 			}
 
@@ -139,30 +155,52 @@ final class WPCampus_Data {
 			// Get the schedule URL for the site.
 			$event_site_schedule_url = get_site_url( $event_site_id, '/schedule/' );
 
+			$event_slug = $event['slug'];
+
 			// Get the sessions.
 			$site_sessions = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT posts.ID,
+					"SELECT proposal.meta_value AS ID,
 					%d AS blog_id,
 					%s AS event,
 					%s AS event_slug,
-					posts.post_title,
-					posts.post_name,
+					event_date.meta_value AS event_date,
+					the_proposal.post_title,
+					the_proposal.post_content,
 					posts.post_parent,
-					posts.post_content,
+					slides.meta_value AS slides_url,
+					posts.post_name AS slug,
 					CONCAT( %s, posts.post_name, '/') AS permalink,
 					posts.guid
 					FROM {$event_site_prefix}posts posts
-					INNER JOIN {$event_site_prefix}postmeta meta ON meta.post_ID = posts.ID AND meta.meta_key = 'wpcampus_session' AND meta.meta_value = '1'
+					INNER JOIN {$event_site_prefix}postmeta event_type ON event_type.post_id = posts.ID AND event_type.meta_key = 'event_type' AND event_type.meta_value = 'session'
+					INNER JOIN {$event_site_prefix}postmeta proposal ON proposal.post_id = posts.ID AND proposal.meta_key = 'proposal' AND proposal.meta_value != ''
+					INNER JOIN {$event_site_prefix}postmeta event_date ON event_date.post_id = posts.ID AND event_date.meta_key = 'conf_sch_event_date' AND event_date.meta_value IN ('" . $event['date'] . "')
+					INNER JOIN {$main_site_prefix}posts the_proposal ON the_proposal.ID = proposal.meta_value AND the_proposal.post_type = 'proposal' AND the_proposal.post_status = 'publish'
+					LEFT JOIN {$main_site_prefix}postmeta slides ON slides.post_id = the_proposal.ID AND slides.meta_key = 'session_slides_url'
 					WHERE posts.post_type = 'schedule' AND posts.post_status = 'publish'",
-					$event_site_id, $event['title'], $event['slug'], $event_site_schedule_url
+					$event_site_id, $event['title'], $event_slug, $event_site_schedule_url
 				)
 			);
 
+			// Sort by title.
+			usort( $site_sessions, function( $a, $b ) {
+				if ( $a->post_title == $b->post_title ) {
+					return 0;
+				}
+				return ( $a->post_title < $b->post_title ) ? -1 : 1;
+			});
+
 			// Add to complete list.
-			if ( ! empty( $site_sessions ) ) {
-				$sessions = array_merge( $sessions, $site_sessions );
-			}
+			$sessions[ $event_slug ] = array(
+				'title'    => $event['title'],
+				'slug'     => $event_slug,
+				'sessions' => $site_sessions
+			);
+
+		}
+
+		return $sessions;
 		}
 
 		// Sort by title.
