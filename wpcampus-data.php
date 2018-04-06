@@ -13,12 +13,21 @@
  * Domain Path:       /languages
  */
 
-// If this file is called directly, abort.
-if ( ! defined( 'WPINC' ) ) {
-	die;
-}
+defined( 'ABSPATH' ) or die();
 
-class WPCampus_Data {
+require_once wpcampus_data()->plugin_dir . 'inc/class-wpcampus-data-global.php';
+
+final class WPCampus_Data {
+
+	/**
+	 * Holds the absolute URL and
+	 * the directory path to the
+	 * main plugin directory.
+	 *
+	 * @var string
+	 */
+	public $plugin_url;
+	public $plugin_dir;
 
 	/**
 	 * Holds the class instance.
@@ -36,64 +45,47 @@ class WPCampus_Data {
 	 */
 	public static function instance() {
 		if ( ! isset( self::$instance ) ) {
-			$class_name = __CLASS__;
+			$class_name     = __CLASS__;
 			self::$instance = new $class_name;
 		}
 		return self::$instance;
 	}
 
 	/**
-	 * Warming up the engine.
+	 * Magic method to output a string if
+	 * trying to use the object as a string.
+	 *
+	 * @return string
 	 */
-	protected function __construct() {
-
-		// Load our text domain.
-		add_action( 'init', array( $this, 'textdomain' ) );
-
-		// Setup the REST API.
-		add_action( 'rest_api_init', array( $this, 'setup_rest_api' ) );
-
+	public function __toString() {
+		return sprintf( __( '%s Data', 'wpcampus-data' ), 'WPCampus' );
 	}
 
 	/**
 	 * Method to keep our instance
-	 * from being cloned or unserialized.
+	 * from being cloned or unserialized
+	 * and to prevent a fatal error when
+	 * calling a method that doesn't exist.
 	 *
-	 * @access	private
-	 * @return	void
+	 * @return void
 	 */
-	private function __clone() {}
-	private function __wakeup() {}
+	public function __clone() {}
+	public function __wakeup() {}
+	public function __call( $method = '', $args = array() ) {}
 
 	/**
-	 * Internationalization FTW.
-	 * Load our text domain.
+	 * Warming up the engine.
 	 */
-	public function textdomain() {
-		load_plugin_textdomain( 'wpcampus', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
-	}
+	protected function __construct() {
 
-	/**
-	 * Setup the API.
-	 */
-	function setup_rest_api() {
-
-		// Load the class.
-		require_once plugin_dir_path( __FILE__ ) . 'inc/class-wpcampus-data-api.php';
-
-		// Initialize our class.
-		$wpcampus_data_api = new WPCampus_Data_API();
-
-		// Register our routes.
-		$wpcampus_data_api->register_routes();
+		// Store the plugin URL and DIR.
+		$this->plugin_url = plugin_dir_url( __FILE__ );
+		$this->plugin_dir = plugin_dir_path( __FILE__ );
 
 	}
 
 	/**
 	 * Get the sessions from all of our events.
-	 *
-	 * @TODO:
-	 * - Update to use new system.
 	 */
 	public function get_event_sessions() {
 		global $wpdb;

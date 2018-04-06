@@ -3,17 +3,23 @@
 /**
  * Our data API class.
  */
-class WPCampus_Data_API {
+final class WPCampus_Data_API {
+
+	/**
+	 * We don't need to instantiate this class.
+	 */
+	protected function __construct() {}
 
 	/**
 	 * Register our API routes.
 	 */
-	public function register_routes() {
+	public static function register() {
+		$plugin = new self();
 
 		// Get WPCampus data.
 		register_rest_route( 'wpcampus', '/data/set/(?P<set>[a-z\_\-]+)', array(
-			'methods'   => WP_REST_Server::READABLE,
-			'callback'  => array( $this, 'get_data_set' ),
+			'methods'  => WP_REST_Server::READABLE,
+			'callback' => array( $plugin, 'get_data_set' ),
 			'permission_callback' => function () {
 				return true;
 			},
@@ -21,15 +27,15 @@ class WPCampus_Data_API {
 
 		// Get list of all WPCampus sessions.
 		register_rest_route( 'wpcampus', '/data/events/sessions', array(
-			'methods'   => 'GET',
-			'callback'  => array( $this, 'get_event_sessions' ),
+			'methods'  => 'GET',
+			'callback' => array( $plugin, 'get_event_sessions' ),
 		));
 	}
 
 	/**
 	 * Respond with particular data for our data sets.
 	 */
-	function get_data_set( WP_REST_Request $request ) {
+	public function get_data_set( WP_REST_Request $request ) {
 
 		// Build the response.
 		$response = null;
@@ -86,25 +92,25 @@ class WPCampus_Data_API {
 
 		// If no response, return an error.
 		if ( ! $response ) {
-			return new WP_Error( 'wpcampus', __( 'This data set is either invalid or does not contain information.', 'wpcampus' ), array( 'status' => 404 ) );
-		} else {
-			return new WP_REST_Response( $response );
+			return new WP_Error( 'wpcampus', __( 'This data set is either invalid or does not contain information.', 'wpcampus-data' ), array( 'status' => 404 ) );
 		}
+
+		return new WP_REST_Response( $response );
 	}
 
 	/**
 	 * Respond with our event sessions.
 	 */
-	function get_event_sessions( WP_REST_Request $request ) {
+	public function get_event_sessions( WP_REST_Request $request ) {
 
 		// Build the response with the sessions.
 		$response = wpcampus_data()->get_event_sessions();
 
 		// If no response, return an error.
 		if ( false === $response ) {
-			return new WP_Error( 'wpcampus', __( 'This data set is either invalid or does not contain information.', 'wpcampus' ), array( 'status' => 404 ) );
-		} else {
-			return new WP_REST_Response( $response );
+			return new WP_Error( 'wpcampus', __( 'This data set is either invalid or does not contain information.', 'wpcampus-data' ), array( 'status' => 404 ) );
 		}
+
+		return new WP_REST_Response( $response );
 	}
 }
