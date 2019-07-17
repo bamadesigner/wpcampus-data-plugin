@@ -87,131 +87,334 @@ final class WPCampus_Data {
 	/**
 	 * Get the sessions from all of our events.
 	 */
-	public function get_event_sessions() {
-		global $wpdb;
+	public function get_sessions( $args = array() ) {
+		if ( ! function_exists( 'wpcampus_get_sessions' ) ) {
+			return null;
+		}
 
-		// Will hold sessions.
-		$sessions = array();
+		// Force these defaults for sessions data feed.
+		$args['proposal_status'] = 'confirmed';
+		$args['get_profiles'] = true;
+		$args['get_wp_user'] = true;
+		$args['get_subjects'] = true;
 
-		// Do we have any filters?
-		$filters = array();
-		$allowed_filters = array( 'e' );
-		if ( ! empty( $_GET ) ) {
-			foreach ( $_GET as $get_filter_key => $get_filter_value ) {
-				if ( ! in_array( $get_filter_key, $allowed_filters ) ) {
+		// Make sure subjects are term IDs.
+		if ( ! empty( $args['subject'] ) ) {
+
+			// Make sure its an array.
+			if ( ! is_array( $args['subject'] ) ) {
+				$args['subject'] = explode( ',', str_replace( ' ', '', $args['subject'] ) );
+			}
+
+			// Make sure its a term ID.
+			foreach ( $args['subject'] as &$subject ) {
+				if ( is_numeric( $subject ) ) {
 					continue;
 				}
-				$filters[ $get_filter_key ] = explode( ',', sanitize_text_field( $get_filter_value ) );
-			}
-		}
-
-		// Store info for event sites.
-		$event_sites = array(
-			array(
-				'site_id' => 6,
-				'title'   => 'WPCampus Online 2018',
-				'slug'    => 'wpcampus-online-2018',
-				'date'    => '2018-01-30',
-			),
-			array(
-				'site_id' => 7,
-				'title'   => 'WPCampus 2017',
-				'slug'    => 'wpcampus-2017',
-				'date'    => "2017-07-15','2017-07-14",
-			),
-			array(
-				'site_id' => 6,
-				'title'   => 'WPCampus Online 2017',
-				'slug'    => 'wpcampus-online-2017',
-				'date'    => '2017-01-23',
-			),
-			array(
-				'site_id' => 4,
-				'title'   => 'WPCampus 2016',
-				'slug'    => 'wpcampus-2016',
-				'date'    => "2016-07-16','2016-07-16",
-			),
-		);
-
-		$main_site_prefix = $wpdb->prefix;
-
-		foreach ( $event_sites as $event ) {
-
-			// If filtering by event, remove those not in the filter.
-			if ( ! empty( $filters['e'] ) && ! in_array( $event['slug'], $filters['e'] ) ) {
-				continue;
-			}
-
-			if ( empty( $event['slug'] ) ) {
-				continue;
-			}
-
-			// Set the ID and title
-			$event_site_id = $event['site_id'];
-
-			// Get the site's DB prefix.
-			$event_site_prefix = $wpdb->get_blog_prefix( $event_site_id );
-
-			// Get the schedule URL for the site.
-			$event_site_schedule_url = get_site_url( $event_site_id, '/schedule/' );
-
-			$event_slug = $event['slug'];
-
-			// Get the sessions.
-			$site_sessions = $wpdb->get_results(
-				$wpdb->prepare(
-					"SELECT proposal.meta_value AS ID,
-					%d AS blog_id,
-					%s AS event,
-					%s AS event_slug,
-					event_date.meta_value AS event_date,
-					the_proposal.post_title,
-					the_proposal.post_content,
-					posts.post_parent,
-					slides.meta_value AS slides_url,
-					posts.post_name AS slug,
-					CONCAT( %s, posts.post_name, '/') AS permalink,
-					posts.guid
-					FROM {$event_site_prefix}posts posts
-					INNER JOIN {$event_site_prefix}postmeta event_type ON event_type.post_id = posts.ID AND event_type.meta_key = 'event_type' AND event_type.meta_value = 'session'
-					INNER JOIN {$event_site_prefix}postmeta proposal ON proposal.post_id = posts.ID AND proposal.meta_key = 'proposal' AND proposal.meta_value != ''
-					INNER JOIN {$event_site_prefix}postmeta event_date ON event_date.post_id = posts.ID AND event_date.meta_key = 'conf_sch_event_date' AND event_date.meta_value IN ('" . $event['date'] . "')
-					INNER JOIN {$main_site_prefix}posts the_proposal ON the_proposal.ID = proposal.meta_value AND the_proposal.post_type = 'proposal' AND the_proposal.post_status = 'publish'
-					LEFT JOIN {$main_site_prefix}postmeta slides ON slides.post_id = the_proposal.ID AND slides.meta_key = 'session_slides_url'
-					WHERE posts.post_type = 'schedule' AND posts.post_status = 'publish'",
-					$event_site_id, $event['title'], $event_slug, $event_site_schedule_url
-				)
-			);
-
-			// Sort by title.
-			usort( $site_sessions, function( $a, $b ) {
-				if ( $a->post_title == $b->post_title ) {
-					return 0;
+				$term = get_term_by( 'slug', $subject, 'subjects' );
+				if ( empty( $term->term_id ) ) {
+					continue;
 				}
-				return ( $a->post_title < $b->post_title ) ? -1 : 1;
-			});
-
-			// Add to complete list.
-			$sessions[ $event_slug ] = array(
-				'title'    => $event['title'],
-				'slug'     => $event_slug,
-				'sessions' => $site_sessions
-			);
-
-		}
-
-		return $sessions;
-		}
-
-		// Sort by title.
-		usort( $sessions, function( $a, $b ) {
-			if ( $a->post_title == $b->post_title ) {
-				return 0;
+				$subject = $term->term_id;
 			}
-			return ( $a->post_title < $b->post_title ) ? -1 : 1;
-		});
+		}
+
+		// Make sure subjects are term IDs.
+		if ( ! empty( $args['format'] ) ) {
+
+			// Make sure its an array.
+			if ( ! is_array( $args['format'] ) ) {
+				$args['format'] = explode( ',', str_replace( ' ', '', $args['format'] ) );
+			}
+
+			// Make sure its a term ID.
+			foreach ( $args['format'] as &$format ) {
+				if ( is_numeric( $format ) ) {
+					continue;
+				}
+				$term = get_term_by( 'slug', $format, 'session_format' );
+				if ( empty( $term->term_id ) ) {
+					continue;
+				}
+				$format = $term->term_id;
+			}
+		}
+
+		// Set default order for date orderby.
+		if ( ! empty( $args['orderby'] ) ) {
+
+			// If sorting by date, then desc is default order.
+			if ( 'date' == $args['orderby'] && empty( $args['order'] ) ) {
+				$args['order'] = 'desc';
+			}
+		}
+
+		// Change event argument.
+		if ( ! empty( $args['event'] ) ) {
+			$args['proposal_event'] = $args['event'];
+			unset( $args['event'] );
+		}
+
+		// Make sure we only get certain events.
+		$display_events = get_option( 'options_wpc_sessions_event_display');
+
+		if ( empty( $args['proposal_event'] ) ) {
+
+			if ( ! empty( $display_events ) ) {
+				$args['proposal_event'] = $display_events;
+			}
+		}
+
+		$sessions = wpcampus_get_sessions( $args );
+
+		if ( empty( $sessions ) ) {
+			return null;
+		}
+
+		// Remove these fields.
+		// @TODO did we need this data for session review?
+		$session_remove = [
+			'post_status',
+			'post_type',
+			'format_preferred',
+			'format_preferred_slug',
+			'format_preferred_name',
+			'proposal_status',
+		];
+
+		$speaker_remove = [
+			'slug',
+			'wordpress_user',
+			'email',
+			'phone',
+			'nicename',
+		];
+
+		/*
+		 * @TODO
+		 * - session_video_id] => 18226
+            [session_video_url] => https://www.youtube.com/watch?v=g7Qnk5jPDfY
+            [session_video_thumbnail
+		 */
+
+		foreach ( $sessions as &$session ) {
+
+			foreach ( $session_remove as $key ) {
+				unset( $session->{$key} );
+			}
+
+			if ( ! empty( $session->speakers ) ) {
+				foreach ( $session->speakers as &$speaker ) {
+					foreach ( $speaker_remove as $key ) {
+						unset( $speaker->{$key} );
+					}
+				}
+			}
+		}
 
 		return $sessions;
+	}
+
+	/**
+	 * Get our videos.
+	 */
+	public function get_videos( $args = array() ) {
+		global $wpdb;
+
+		$args = wp_parse_args( $args, array(
+			'playlist' => null,
+			'category' => null,
+			'search'   => null,
+		));
+
+		$playlist = '';
+		if ( ! empty( $args['playlist'] ) ) {
+
+			$playlist = $args['playlist'];
+
+			if ( ! is_array( $playlist ) ) {
+				$playlist = explode( ',', str_replace( ' ', '', $playlist ) );
+			}
+
+			$playlist = array_map( 'sanitize_text_field', $playlist );
+
+		}
+
+		$post_type = array( 'podcast', 'video' );
+
+		$podcast_search = ! empty( $playlist ) ? array_search( 'podcast', $playlist ) : false;
+		if ( false !== $podcast_search ) {
+
+			unset( $playlist[ $podcast_search ] );
+
+			// This means we're only looking for podcasts.
+			if ( empty( $playlist ) ) {
+				$post_type = array( 'podcast' );
+			}
+		}
+
+		$post_type_str = implode( "','", $post_type );
+
+		$category = '';
+		if ( ! empty( $args['category'] ) ) {
+
+			$category = $args['category'];
+
+			if ( ! is_array( $category ) ) {
+				$category = explode( ',', str_replace( ' ', '', $category ) );
+			}
+
+			$category = array_map( 'sanitize_text_field', $category );
+
+		}
+
+		$search = '';
+		if ( ! empty( $args['search'] ) ) {
+			$search = sanitize_text_field( $args['search'] );
+		}
+
+		$select = "SELECT posts.ID,
+			posts.post_author,
+			posts.post_content,
+			IF ( video_title.meta_value IS NOT NULL AND video_title.meta_value != '', video_title.meta_value, posts.post_title ) AS post_title,
+			posts.post_name,
+			proposal.post_id AS proposal,
+			IF ( proposal.post_id IS NOT NULL, ( SELECT post_name FROM {$wpdb->posts} WHERE ID = proposal.post_id AND post_type = 'proposal' AND post_status = 'publish' ), NULL ) AS proposal_slug,
+			posts.post_type,
+			posts.comment_count,
+			playlist_terms.name AS event_name,
+			playlist_terms.slug AS event_slug";
+
+		$from = " FROM {$wpdb->posts} posts";
+
+		$join = " LEFT JOIN {$wpdb->postmeta} video_title ON video_title.post_id = posts.ID and video_title.meta_key = 'video_title'
+			LEFT JOIN {$wpdb->postmeta} proposal ON proposal.meta_value = posts.ID AND proposal.meta_key = 'session_video'";
+
+		$join .= " INNER JOIN {$wpdb->term_relationships} playlist_rel ON playlist_rel.object_id = posts.ID
+			INNER JOIN {$wpdb->term_taxonomy} playlist_tax ON playlist_tax.term_taxonomy_id = playlist_rel.term_taxonomy_id AND playlist_tax.taxonomy = 'playlist'
+			INNER JOIN {$wpdb->terms} playlist_terms ON playlist_terms.term_id = playlist_tax.term_id";
+
+		if ( ! empty( $category ) ) {
+
+			$category_str = implode( "','", $category );
+
+			$join .= " INNER JOIN {$wpdb->term_relationships} category_rel ON category_rel.object_id = posts.ID
+				INNER JOIN {$wpdb->term_taxonomy} category_tax ON category_tax.term_taxonomy_id = category_rel.term_taxonomy_id AND category_tax.taxonomy = 'category'
+				INNER JOIN {$wpdb->terms} category_terms ON category_terms.term_id = category_tax.term_id AND category_terms.slug IN ('" . $category_str . "')";
+		}
+
+		$where = " WHERE posts.post_type IN ('" . $post_type_str . "') AND posts.post_status = 'publish'";
+
+		if ( ! empty( $playlist ) ) {
+			$where .= " AND playlist_terms.slug IN ('" . implode( "','", $playlist ) . "')";
+		}
+
+		if ( ! empty( $search ) ) {
+			$where .= " AND ( posts.post_title LIKE '%" . $search . "%' OR posts.post_content LIKE '%" . $search . "%')";
+		}
+
+		$groupby = " GROUP BY posts.ID";
+
+		if ( ! empty( $playlist ) ) {
+			$havingby = " HAVING event_name IS NOT NULL";
+
+			if ( false !== $podcast_search ) {
+				$havingby .= " OR posts.post_type = 'podcast'";
+			}
+		} else {
+			$havingby = '';
+		}
+
+		$orderby = " ORDER BY post_title ASC";
+
+		$query = $select . $from . $join . $where . $groupby . $havingby . $orderby;
+
+		$videos = $wpdb->get_results( $query );
+
+		if ( empty( $videos ) ) {
+			return $videos;
+		}
+
+		$media_exists = function_exists( 'wpcampus_media' );
+
+		foreach ( $videos as &$video ) {
+
+			$video->youtube = $media_exists ? wpcampus_media()->get_youtube_video_id( $video->ID ) : null;
+			$video->watch_permalink = ! empty( $video->youtube ) ? wpcampus_media()->get_youtube_watch_url( $video->youtube ) : null;
+
+			if ( 'podcast' == $video->post_type ) {
+				$video->permalink = get_permalink( $video->ID );
+			} else {
+
+				$video->permalink = null;
+
+				switch( $video->event_slug ) {
+
+					case 'wpcampus-online-2017':
+					case 'wpcampus-online-2018':
+					case 'wpcampus-online-2019':
+						$video->permalink = 'https://online.wpcampus.org/schedule/';
+						break;
+
+					case 'wpcampus-2016':
+						$video->permalink = 'https://2016.wpcampus.org/schedule/';
+						break;
+
+					case 'wpcampus-2017':
+						$video->permalink = 'https://2017.wpcampus.org/schedule/';
+						break;
+
+					case 'wpcampus-2018':
+						$video->permalink = 'https://2018.wpcampus.org/schedule/';
+						break;
+
+					case 'wpcampus-2019':
+						$video->permalink = 'https://2019.wpcampus.org/schedule/';
+						break;
+
+				}
+
+				if ( ! empty( $video->proposal_slug ) ) {
+					$video->permalink .= $video->proposal_slug;
+				}
+			}
+
+
+			if ( empty( $video->permalink ) && ! empty( $video->watch_permalink ) ) {
+				$video->permalink = $video->watch_permalink;
+			}
+
+			// Get authors.
+			$video->authors = $media_exists ? wpcampus_media()->get_video_authors( $video->ID ) : array();
+
+			// Get the thumbnail.
+			$video->thumbnail = null;
+
+			// Get the YouTube snippet to get the thumbnail.
+			$snippet = get_post_meta( $video->ID, 'wpc_youtube_video_snippet', true );
+			if ( ! empty( $snippet ) ) {
+
+				// Get the thumbnails.
+				$thumbnails = $snippet && ! empty( $snippet->thumbnails ) ? (array) $snippet->thumbnails : null;
+
+				// Get the thumbnail.
+				if ( $thumbnails ) {
+					foreach ( array( 'standard', 'high', 'medium', 'default' ) as $size ) {
+						if ( isset( $thumbnails[ $size ] ) && ! empty( $thumbnails[ $size ]->url ) ) {
+							$video->thumbnail = $thumbnails[ $size ]->url;
+							break;
+						}
+					}
+				}
+			}
+
+			// If no thumbnail, use default set at standard size: 640 x 480.
+			if ( empty( $video->thumbnail ) ) {
+				$video->thumbnail = '/wp-content/plugins/wpcampus-media-plugin/assets/images/video-thumbnail-standard.png';
+			}
+		}
+
+		return $videos;
 	}
 }
 

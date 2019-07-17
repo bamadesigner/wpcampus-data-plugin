@@ -26,9 +26,15 @@ final class WPCampus_Data_API {
 		));
 
 		// Get list of all WPCampus sessions.
-		register_rest_route( 'wpcampus', '/data/events/sessions', array(
+		register_rest_route( 'wpcampus', '/data/sessions', array(
 			'methods'  => 'GET',
-			'callback' => array( $plugin, 'get_event_sessions' ),
+			'callback' => array( $plugin, 'get_sessions' ),
+		));
+
+		// Get list of all WPCampus videos.
+		register_rest_route( 'wpcampus', '/data/videos', array(
+			'methods'  => 'GET',
+			'callback' => array( $plugin, 'get_videos' ),
 		));
 	}
 
@@ -101,10 +107,75 @@ final class WPCampus_Data_API {
 	/**
 	 * Respond with our event sessions.
 	 */
-	public function get_event_sessions( WP_REST_Request $request ) {
+	public function get_sessions( WP_REST_Request $request ) {
+
+		$args    = array();
+		$filters = array(
+			'orderby'  => array( 'date', 'title' ),
+			'order'    => array( 'asc', 'desc' ),
+			'event'    => array(
+				'wpcampus-2019',
+				'wpcampus-2018',
+				'wpcampus-2017',
+				'wpcampus-2016',
+				'wpcampus-online-2019',
+				'wpcampus-online-2018',
+				'wpcampus-online-2017'
+			),
+			'search'  => array(),
+			'format'  => array(),
+			'subject' => array(),
+		);
+
+		foreach ( $filters as $filter => $options ) {
+			if ( ! empty( $_GET[ $filter ] ) ) {
+				$filter_val = strtolower( $_GET[ $filter ] );
+
+				// @TODO optimize?
+				if ( in_array( $filter, array( 'search', 'subject', 'format' ) ) ) {
+					$args[ $filter ] = sanitize_text_field( $filter_val );
+				} else if ( in_array( $filter_val, $options ) ) {
+					$args[ $filter ] = $filter_val;
+				}
+			}
+		}
 
 		// Build the response with the sessions.
-		$response = wpcampus_data()->get_event_sessions();
+		$response = wpcampus_data()->get_sessions( $args );
+
+		if ( empty( $response ) ) {
+			$response = [];
+		}
+
+		// If no response, return an error.
+		if ( false === $response ) {
+			return new WP_Error( 'wpcampus', __( 'This data set is either invalid or does not contain information.', 'wpcampus-data' ), array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response( $response );
+	}
+
+	/**
+	 * Respond with our videos.
+	 */
+	public function get_videos( WP_REST_Request $request ) {
+
+		$args = array();
+
+		if ( ! empty( $_GET['playlist'] ) ) {
+			$args['playlist'] = sanitize_text_field( $_GET['playlist'] );
+		}
+
+		if ( ! empty( $_GET['category'] ) ) {
+			$args['category'] = sanitize_text_field( $_GET['category'] );
+		}
+
+		if ( ! empty( $_GET['search'] ) ) {
+			$args['search'] = sanitize_text_field( $_GET['search'] );
+		}
+
+		// Build the response with the videos.
+		$response = wpcampus_data()->get_videos( $args );
 
 		// If no response, return an error.
 		if ( false === $response ) {
@@ -114,3 +185,4 @@ final class WPCampus_Data_API {
 		return new WP_REST_Response( $response );
 	}
 }
+WPCampus_Data_API::register();
