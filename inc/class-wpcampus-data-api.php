@@ -109,11 +109,12 @@ final class WPCampus_Data_API {
 	 */
 	public function get_sessions( WP_REST_Request $request ) {
 
-		$args    = array();
-		$filters = array(
-			'orderby'  => array( 'date', 'title' ),
-			'order'    => array( 'asc', 'desc' ),
-			'event'    => array(
+		$args    = [];
+		$filters = [
+			'assets'   => [ 'slides', 'video' ],
+			'orderby'  => [ 'date', 'title' ],
+			'order'    => [ 'asc', 'desc' ],
+			'event'    => [
 				'wpcampus-2019',
 				'wpcampus-2018',
 				'wpcampus-2017',
@@ -121,20 +122,43 @@ final class WPCampus_Data_API {
 				'wpcampus-online-2019',
 				'wpcampus-online-2018',
 				'wpcampus-online-2017'
-			),
-			'search'  => array(),
-			'format'  => array(),
-			'subject' => array(),
-		);
+			],
+			'search'  => [],
+			'format'  => [],
+			'subject' => [],
+		];
 
 		foreach ( $filters as $filter => $options ) {
-			if ( ! empty( $_GET[ $filter ] ) ) {
-				$filter_val = strtolower( $_GET[ $filter ] );
 
-				// @TODO optimize?
-				if ( in_array( $filter, array( 'search', 'subject', 'format' ) ) ) {
-					$args[ $filter ] = sanitize_text_field( $filter_val );
-				} else if ( in_array( $filter_val, $options ) ) {
+			if ( ! empty( $_GET[ $filter ] ) ) {
+
+				$filter_val = strtolower( str_replace( ' ', '', $_GET[ $filter ] ) );
+
+				$has_open_value = in_array( $filter, array( 'search', 'subject', 'format' ) );
+
+				if ( $has_open_value ) {
+					$filter_val = sanitize_text_field( $filter_val );
+				}
+
+				// Means it has a comma so convert to array.
+				if ( strpos( $filter_val, ',' ) !== false ) {
+
+					$filter_val = explode( ',', $filter_val );
+
+					$filtered_values = [];
+					foreach ( $filter_val as $value ) {
+
+						if ( $has_open_value || in_array( $value, $options ) ) {
+							$filtered_values[] = $value;
+						}
+					}
+
+					$args[ $filter ] = $filtered_values;
+
+					continue;
+				}
+
+				if ( $has_open_value || in_array( $filter_val, $options ) ) {
 					$args[ $filter ] = $filter_val;
 				}
 			}
